@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Run outputs (large, generated)
+output/
+eval_runs/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# HuggingFace cache (models downloaded at runtime)
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
+*.env
+
+# Local dev artifacts
+hard_images/
+.claude/

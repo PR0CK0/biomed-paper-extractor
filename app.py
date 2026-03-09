@@ -1508,7 +1508,7 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
                             scale=3,
                         )
                         entities_out = gr.Code(language="json", label="Entity JSON", scale=2)
-                    entity_table_out = gr.HTML(value="", sanitize_html=False)
+                    entity_table_out = gr.HTML(value="")
                 with gr.Tab("Run Summary"):
                     gr.Markdown(
                         "Stats for the current run. Use **Set as A / Set as B** to compare two runs "

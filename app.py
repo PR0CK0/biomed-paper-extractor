@@ -54,6 +54,8 @@ except ImportError:
     COOCCURRENCE_AVAILABLE = False
     WORDCLOUD_AVAILABLE = False
 
+IS_HF_SPACE = bool(os.environ.get("SPACE_ID"))
+
 _HF_VLM_CHOICES: list[tuple[str, str]] = (
     [c for c in _HF_VLM_REGISTRY if "SmolVLM" in c[1]]
     if IS_HF_SPACE
@@ -157,8 +159,6 @@ def _update_api_model_choices(api_provider: str):
     choices = _API_CHOICES_MAP.get(api_provider, _API_OPENAI_CHOICES)
     return gr.update(choices=choices, value=choices[0][1])
 
-
-IS_HF_SPACE = bool(os.environ.get("SPACE_ID"))
 
 _ollama_available = check_ollama()
 if IS_HF_SPACE:

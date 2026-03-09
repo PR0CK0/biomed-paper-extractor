@@ -1413,6 +1413,7 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
                         label="PMC ID / URL",
                         placeholder="PMC7614754  or  PMC URL  or  any PDF/article URL",
                         info="Leave blank for a random open-access paper.",
+                        lines=1,
                     )
                     with gr.Row(equal_height=True):
                         gr.HTML('<div style="display:flex;align-items:center;height:100%;font-size:12px;color:#6b7280;white-space:nowrap;padding-right:4px;">Example papers</div>')

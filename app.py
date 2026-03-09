@@ -54,7 +54,11 @@ except ImportError:
     COOCCURRENCE_AVAILABLE = False
     WORDCLOUD_AVAILABLE = False
 
-_HF_VLM_CHOICES: list[tuple[str, str]] = _HF_VLM_REGISTRY
+_HF_VLM_CHOICES: list[tuple[str, str]] = (
+    [c for c in _HF_VLM_REGISTRY if "SmolVLM" in c[1]]
+    if IS_HF_SPACE
+    else _HF_VLM_REGISTRY
+)
 
 _API_PROVIDER_CHOICES = ["OpenAI", "Anthropic", "Google"]
 _API_CHOICES_MAP: dict[str, list[tuple[str, str]]] = {
@@ -177,6 +181,10 @@ _HF_SPACE_BANNER = """
     <strong>For figure analysis, use API backends only:</strong> select <em>API (Cloud)</em>
     as the VLM provider and enter an OpenAI, Anthropic, or Google API key.
     The full NER pipeline works normally on CPU.
+    <br><br>
+    Want full GPU model support and Ollama? <strong>
+    <a href="https://github.com/PR0CK0/biomed-paper-extractor" target="_blank"
+       style="color:#fb923c;">Clone the repo and run it locally &rarr;</a></strong>
   </div>
 </div>
 """ if IS_HF_SPACE else ""

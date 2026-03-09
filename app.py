@@ -1413,7 +1413,6 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
                         )
                         ollama_indicator = gr.HTML(
                             value=_ollama_status_html(_ollama_available),
-                            scale=1,
                         )
                     with gr.Row(visible=False) as ollama_settings_row:
                         ollama_timeout_input = gr.Number(

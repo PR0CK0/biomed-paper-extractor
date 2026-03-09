@@ -42,6 +42,8 @@ _DEFAULT_MODEL = "Qwen/Qwen2-VL-2B-Instruct"
 MODEL_ID: str = os.environ.get("QWEN_MODEL", _DEFAULT_MODEL)
 
 _HF_VLM_REGISTRY: list[tuple[str, str]] = [
+    ("SmolVLM 256M  (256M · ~1 GB · Apache 2.0 · CPU-safe)", "HuggingFaceTB/SmolVLM-256M-Instruct"),
+    ("SmolVLM 500M  (500M · ~2 GB · Apache 2.0 · CPU-safe)", "HuggingFaceTB/SmolVLM-500M-Instruct"),
     ("Qwen2-VL 2B  (2.2B · ~5 GB · Apache 2.0)", "Qwen/Qwen2-VL-2B-Instruct"),
     ("Qwen2-VL 7B  (7.6B · ~15 GB · Apache 2.0)", "Qwen/Qwen2-VL-7B-Instruct"),
     ("InternVL2 2B  (2B · ~5 GB · MIT)", "OpenGVLab/InternVL2-2B"),
@@ -167,6 +169,8 @@ def _get_dtype(device: str) -> torch.dtype:
 
 def _model_family(model_id: str) -> str:
     """Return a canonical family string for the given model ID."""
+    if "SmolVLM" in model_id:
+        return "smolvlm"
     if "InternVL2" in model_id or "InternVL2_5" in model_id:
         return "internvl2"
     if "Phi-3.5-vision" in model_id or "Phi-3-vision" in model_id:
@@ -196,7 +200,23 @@ def _load_model() -> tuple[object, object]:
 
     print(f"[task1_figures] Loading {MODEL_ID} (family={family}) on device={device} dtype={dtype}")
 
-    if family == "internvl2":
+    if family == "smolvlm":
+        from transformers import AutoModelForVision2Seq, AutoProcessor
+
+        _processor = AutoProcessor.from_pretrained(MODEL_ID)
+        if device == "cuda":
+            _model = AutoModelForVision2Seq.from_pretrained(
+                MODEL_ID,
+                torch_dtype=dtype,
+                device_map="auto",
+            )
+        else:
+            _model = AutoModelForVision2Seq.from_pretrained(
+                MODEL_ID,
+                torch_dtype=torch.float32,
+            ).to(device)
+
+    elif family == "internvl2":
         from transformers import AutoModel, AutoTokenizer
 
         if device == "cuda":
@@ -531,6 +551,35 @@ def get_last_prompt() -> str:
 # ---------------------------------------------------------------------------
 
 
+def _analyze_single_smolvlm(
+    pil_img: Image.Image,
+    model: object,
+    processor: object,
+    device: str,
+    deplot_table: str = "",
+) -> dict:
+    """Run SmolVLM inference on one PIL image and return parsed dict."""
+    prompt_text = _build_prompt(deplot_table)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image"},
+                {"type": "text", "text": prompt_text},
+            ],
+        }
+    ]
+    text = processor.apply_chat_template(messages, add_generation_prompt=True)
+    inputs = processor(text=text, images=[pil_img], return_tensors="pt").to(device)
+    with torch.no_grad():
+        generated_ids = model.generate(**inputs, max_new_tokens=1024)
+    raw = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    # Strip the prompt echo that some SmolVLM versions include
+    if "Assistant:" in raw:
+        raw = raw.split("Assistant:")[-1].strip()
+    return _parse_json(raw)
+
+
 def _analyze_single(
     pil_img: Image.Image,
     model: object,
@@ -699,7 +748,9 @@ def _analyze_single_dispatch(
     deplot_table = _run_deplot(pil_img) if DEPLOT_ENABLED else ""
 
     family = _model_family_active
-    if family == "internvl2":
+    if family == "smolvlm":
+        return _analyze_single_smolvlm(pil_img, model, processor_or_tokenizer, device, deplot_table)
+    elif family == "internvl2":
         return _analyze_single_internvl2(pil_img, model, processor_or_tokenizer, device, deplot_table)
     elif family == "phi35":
         return _analyze_single_phi35(pil_img, model, processor_or_tokenizer, device, deplot_table)

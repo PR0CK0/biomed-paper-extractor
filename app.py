@@ -153,12 +153,32 @@ def _update_api_model_choices(api_provider: str):
     return gr.update(choices=choices, value=choices[0][1])
 
 
+IS_HF_SPACE = bool(os.environ.get("SPACE_ID"))
+
 _ollama_available = check_ollama()
-_provider_choices = (
-    ["HuggingFace", "Ollama (local)", "API (Cloud)"]
-    if _ollama_available
-    else ["HuggingFace", "API (Cloud)"]
-)
+if IS_HF_SPACE:
+    _provider_choices = ["HuggingFace", "API (Cloud)"]
+elif _ollama_available:
+    _provider_choices = ["HuggingFace", "Ollama (local)", "API (Cloud)"]
+else:
+    _provider_choices = ["HuggingFace", "API (Cloud)"]
+
+_HF_SPACE_BANNER = """
+<div style="background:#431407;border:2px solid #c2410c;border-radius:10px;padding:16px 20px;margin-bottom:4px;">
+  <div style="font-size:15px;font-weight:700;color:#fb923c;margin-bottom:8px;">
+    ⚠ Hosted on HuggingFace Free Tier &mdash; CPU Only, No GPU
+  </div>
+  <div style="font-size:13px;color:#fed7aa;line-height:1.7;">
+    This Space runs on <strong>CPU only</strong>. HuggingFace VLM models (Qwen2-VL, InternVL2, etc.)
+    require a GPU and <strong>will not load here</strong> &mdash; even SmolVLM will be extremely slow.
+    Ollama is also unavailable (no local server on hosted infrastructure).
+    <br><br>
+    <strong>For figure analysis, use API backends only:</strong> select <em>API (Cloud)</em>
+    as the VLM provider and enter an OpenAI, Anthropic, or Google API key.
+    The full NER pipeline works normally on CPU.
+  </div>
+</div>
+""" if IS_HF_SPACE else ""
 
 NER_MODELS = NER_MODEL_OPTIONS
 
@@ -1368,6 +1388,8 @@ def _eval_update_ner_dist(eval_json_str: str | None, model_key: str | None):
 
 
 with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
+    if IS_HF_SPACE:
+        gr.HTML(_HF_SPACE_BANNER)
     gr.Markdown("## 🔬 BioMed Paper Information Extractor\nEnd-to-end pipeline for automated biomedical literature analysis — figure digitization via VLM and named entity recognition via configurable NER models.")
     with gr.Tabs():
         # ===================================================================
@@ -1407,12 +1429,13 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
                     with gr.Row():
                         vlm_provider = gr.Radio(
                             choices=_provider_choices,
-                            value="HuggingFace",
+                            value="API (Cloud)" if IS_HF_SPACE else "HuggingFace",
                             label="VLM Provider",
                             scale=3,
                         )
                         ollama_indicator = gr.HTML(
                             value=_ollama_status_html(_ollama_available),
+                            visible=not IS_HF_SPACE,
                         )
                     with gr.Row(visible=False) as ollama_settings_row:
                         ollama_timeout_input = gr.Number(

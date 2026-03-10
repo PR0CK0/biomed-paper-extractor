@@ -6,6 +6,7 @@ import json
 import os
 import random
 import re
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -14,6 +15,7 @@ from pathlib import Path
 
 import gradio as gr
 import requests
+import transformers  # pre-initialize to prevent concurrent import race condition
 
 from fetch_paper import fetch_paper, fetch_url
 from task1_figures import (
@@ -55,6 +57,31 @@ except ImportError:
     WORDCLOUD_AVAILABLE = False
 
 IS_HF_SPACE = bool(os.environ.get("SPACE_ID"))
+
+_GITHUB_REPO = "https://github.com/PR0CK0/biomed-paper-extractor"
+
+def _git_commit() -> str:
+    """Return the short git commit hash, or empty string if git is unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except Exception:
+        return ""
+
+_COMMIT = _git_commit()
+_FOOTER_HTML = (
+    f'<div style="text-align:center;padding:12px 0 4px;font-size:0.78rem;color:#6b7280;">'
+    + (
+        f'<a href="{_GITHUB_REPO}/commit/{_COMMIT}" target="_blank" '
+        f'style="color:#6b7280;text-decoration:underline;">{_COMMIT}</a>'
+        if _COMMIT else "unknown commit"
+    )
+    + "</div>"
+)
 
 _HF_VLM_CHOICES: list[tuple[str, str]] = (
     [c for c in _HF_VLM_REGISTRY if "SmolVLM" in c[1]]
@@ -187,7 +214,27 @@ _HF_SPACE_BANNER = """
        style="color:#fb923c;">Clone the repo and run it locally &rarr;</a></strong>
   </div>
 </div>
-""" if IS_HF_SPACE else ""
+""" if IS_HF_SPACE else """
+<div style="background:#0c1a2e;border:2px solid #1d4ed8;border-radius:10px;padding:16px 20px;margin-bottom:4px;">
+  <div style="font-size:15px;font-weight:700;color:#60a5fa;margin-bottom:8px;">
+    ℹ Local Instance &mdash; First-Run Model Loading Times
+  </div>
+  <div style="font-size:13px;color:#bfdbfe;line-height:1.7;">
+    <strong>HuggingFace models</strong> are downloaded from the Hub and cached on first use.
+    Expect <strong>several minutes</strong> on first load for larger models (7B+).
+    Once cached, they load in seconds on subsequent runs.
+    The cache lives at <code style="background:#1e3a5f;padding:1px 4px;border-radius:3px;">~/.cache/huggingface/hub</code>
+    and persists across app restarts.
+    <br><br>
+    <strong>NER models</strong> (especially scispaCy + UMLS) also download on first use
+    and can take 30&ndash;120 seconds to initialize due to a ~3&nbsp;GB in-memory knowledge base.
+    Repeat runs within the same session are fast.
+    <br><br>
+    <strong>Ollama models</strong> load instantly if <code style="background:#1e3a5f;padding:1px 4px;border-radius:3px;">ollama serve</code> is already running.
+    Pull a model first with <code style="background:#1e3a5f;padding:1px 4px;border-radius:3px;">ollama pull &lt;model&gt;</code>.
+  </div>
+</div>
+"""
 
 NER_MODELS = NER_MODEL_OPTIONS
 
@@ -286,7 +333,7 @@ def _pipeline_html(
         color, bg = _COLORS.get(state, _COLORS["idle"])
         icon = _ICONS.get(state, "○")
         opacity = "1" if state != "idle" else "0.35"
-        spin = "animation:pl-spin 1s linear infinite;display:inline-block;" if state == "running" else ""
+        spin = "animation:pl-spin 0.6s linear infinite;display:inline-block;" if state == "running" else ""
         info_html = (
             f'<div style="font-size:11px;color:{color};opacity:0.85;margin-top:4px;'
             f'text-align:center;line-height:1.4;">{info}</div>'
@@ -318,7 +365,6 @@ def _pipeline_html(
         )
 
     return (
-        '<style>@keyframes pl-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>'
         '<div style="width:100%;box-sizing:border-box;padding:20px 8px 12px;">'
         '<div style="display:flex;align-items:flex-start;width:100%;gap:0;">'
         + node("Fetch", fetch, fetch_info)
@@ -1397,8 +1443,10 @@ def _eval_update_ner_dist(eval_json_str: str | None, model_key: str | None):
 
 
 with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
-    if IS_HF_SPACE:
-        gr.HTML(_HF_SPACE_BANNER)
+    # Global CSS injected once — keeps the spinner animation alive across pipeline updates.
+    # If this were inside _pipeline_html(), each yield would reset the animation timeline.
+    gr.HTML('<style>@keyframes pl-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>')
+    gr.HTML(_HF_SPACE_BANNER)
     gr.Markdown("## 🔬 BioMed Paper Information Extractor\nEnd-to-end pipeline for automated biomedical literature analysis — figure digitization via VLM and named entity recognition via configurable NER models.")
     with gr.Tabs():
         # ===================================================================
@@ -1596,6 +1644,9 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
             ner_dropdown.change(lambda: gr.update(value=_reload_warn_html, visible=True), outputs=[ner_reload_warn])
 
             vlm_load_btn.click(
+                lambda ner_text: _render_readiness("Loading...", ner_text),
+                inputs=[_ner_ready_text], outputs=[readiness_html],
+            ).then(
                 load_vlm_model,
                 inputs=[vlm_dropdown, api_key_input],
                 outputs=[vlm_status, _vlm_loaded, run_btn, _vlm_ready_text, vlm_load_btn],
@@ -1603,6 +1654,9 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
             ).then(_render_readiness, inputs=[_vlm_ready_text, _ner_ready_text], outputs=[readiness_html]
             ).then(lambda: gr.update(value="", visible=False), outputs=[vlm_reload_warn])
             ner_load_btn.click(
+                lambda vlm_text: _render_readiness(vlm_text, "Loading..."),
+                inputs=[_vlm_ready_text], outputs=[readiness_html],
+            ).then(
                 load_ner_model,
                 inputs=[ner_dropdown],
                 outputs=[ner_status, _ner_loaded, run_btn, _ner_ready_text, ner_load_btn],
@@ -1785,6 +1839,8 @@ with gr.Blocks(title="BioMed Paper Information Extractor") as demo:
             else:
                 _readme_md = _readme_raw
             gr.Markdown(_readme_md)
+
+        gr.HTML(_FOOTER_HTML)
 
 
 if __name__ == "__main__":

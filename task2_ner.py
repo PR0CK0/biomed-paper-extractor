@@ -3,7 +3,32 @@ from __future__ import annotations
 import json
 import sys
 import warnings
+from contextlib import contextmanager
 from typing import Any
+
+# ---------------------------------------------------------------------------
+# Patch accelerate.init_empty_weights at import time (before any threads start).
+#
+# On Windows + PyTorch 2.x + transformers >=4.50, AutoModel.from_config() uses
+# accelerate.init_empty_weights() which initialises the backbone on the meta
+# device.  GLiNER's from_pretrained() then calls .to("cpu") which raises
+# "Cannot copy out of meta tensor".  Replacing init_empty_weights with a no-op
+# means the backbone initialises directly on CPU.  Harmless on Mac/Linux/HF.
+# Must run at module level so the patch is in place before any concurrent
+# model-loading threads start.
+# ---------------------------------------------------------------------------
+try:
+    import accelerate
+
+    @contextmanager
+    def _noop_init(*args, **kwargs):
+        yield
+
+    accelerate.init_empty_weights = _noop_init
+    if hasattr(accelerate, "hooks"):
+        accelerate.hooks.init_empty_weights = _noop_init
+except Exception:
+    pass
 
 try:
     import spaces
@@ -469,7 +494,7 @@ def _load_gliner() -> None:
 
     print("[task2_ner] Loading Ihor/gliner-biomed-base-v1.0...")
     try:
-        _gliner_model = GLiNER.from_pretrained("Ihor/gliner-biomed-base-v1.0")
+        _gliner_model = GLiNER.from_pretrained("Ihor/gliner-biomed-base-v1.0", map_location="cpu")
     except Exception as exc:
         raise RuntimeError(
             f"[task2_ner] Failed to load Ihor/gliner-biomed-base-v1.0.\n"

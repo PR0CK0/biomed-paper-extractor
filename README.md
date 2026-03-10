@@ -28,8 +28,15 @@ Designed for researchers who need structured, machine-readable information extra
 ```bash
 git clone https://github.com/PR0CK0/biomed-paper-extractor
 cd biomed-paper-extractor
-make install   # creates .venv with python3.11 and installs all dependencies
-make run       # launches app at http://localhost:7860
+make install        # creates .venv with python3.11 and installs all dependencies
+make run            # launches app at http://localhost:7860
+```
+
+**NVIDIA GPU (CUDA 12.1+)?** Use `make install-cuda` instead of `make install` to get the CUDA-enabled PyTorch build — HuggingFace VLM inference will be dramatically faster:
+
+```bash
+make install-cuda   # installs CUDA torch first, then all other dependencies
+make run
 ```
 
 ### Windows
@@ -37,8 +44,15 @@ make run       # launches app at http://localhost:7860
 Install [Python 3.12](https://www.python.org/downloads/release/python-31210/) and [GNU Make for Windows](https://gnuwin32.sourceforge.net/packages/make.htm) (or via `winget install GnuWin32.Make`), then open a terminal in the repo directory:
 
 ```powershell
-make install   # creates .venv with py -3.12 and installs all dependencies
-make run       # launches app at http://localhost:7860
+make install        # creates .venv with py -3.12 and installs all dependencies
+make run            # launches app at http://localhost:7860
+```
+
+**NVIDIA GPU (CUDA 12.1+)?** Use `make install-cuda` instead:
+
+```powershell
+make install-cuda   # installs CUDA torch first, then all other dependencies
+make run
 ```
 
 > First install downloads ~2 GB of scispaCy models and ML dependencies — expect 5–10 minutes.

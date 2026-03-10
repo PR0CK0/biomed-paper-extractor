@@ -22,20 +22,23 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import fitz  # PyMuPDF
-import requests
 from bs4 import BeautifulSoup
 from PIL import Image
 
+import requests
+from curl_cffi.requests import Session as _CurlSession
+
 _BASE_URL = "https://pmc.ncbi.nlm.nih.gov"
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-}
+
+# curl_cffi impersonates Chrome's TLS fingerprint, bypassing NCBI's bot
+# detection that blocks Python's default urllib3/OpenSSL stack on Windows.
+# Works identically on Mac/Linux/HF where NCBI doesn't block plain requests.
+_session = _CurlSession(impersonate="chrome120")
+
+
+def _get(url: str, timeout: int) -> requests.Response:
+    """GET via curl_cffi Chrome-impersonation session."""
+    return _session.get(url, timeout=timeout)
 _PAGE_TIMEOUT = 30
 _IMG_TIMEOUT = 15
 _MIN_DIMENSION = 100
@@ -95,7 +98,7 @@ def _fetch_image(url: str) -> Optional[Image.Image]:
     real figure (below _MIN_DIMENSION in either dimension).
     """
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=_IMG_TIMEOUT)
+        resp = _get(url, timeout=_IMG_TIMEOUT)
         resp.raise_for_status()
         img = Image.open(io.BytesIO(resp.content)).convert("RGB")
         if img.width < _MIN_DIMENSION or img.height < _MIN_DIMENSION:
@@ -232,7 +235,7 @@ def _extract_figures_html(soup: BeautifulSoup, pmc_id: str) -> tuple[list[Image.
 def _download_pdf(url: str) -> Optional[bytes]:
     """Download a URL and return bytes only if it's a real PDF."""
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=_PAGE_TIMEOUT)
+        resp = _get(url, timeout=_PAGE_TIMEOUT)
         resp.raise_for_status()
         content = resp.content
         content_type = resp.headers.get("Content-Type", "")
@@ -256,9 +259,8 @@ def _fetch_pdf_bytes(pmc_id: str, doi: Optional[str] = None) -> Optional[bytes]:
     """
     # 1. PMC OA API
     try:
-        oa_resp = requests.get(
+        oa_resp = _get(
             f"https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id={pmc_id}",
-            headers=_HEADERS,
             timeout=15,
         )
         if oa_resp.ok and "error" not in oa_resp.text:
@@ -277,9 +279,8 @@ def _fetch_pdf_bytes(pmc_id: str, doi: Optional[str] = None) -> Optional[bytes]:
     # 2. Unpaywall (requires DOI)
     if doi:
         try:
-            uw_resp = requests.get(
+            uw_resp = _get(
                 f"https://api.unpaywall.org/v2/{doi}?email=pmc-extractor@example.com",
-                headers=_HEADERS,
                 timeout=15,
             )
             if uw_resp.ok:
@@ -392,7 +393,7 @@ def _fetch_jats_text(pmc_id: str) -> Optional[str]:
         f"?db=pmc&id={numeric_id}&rettype=xml&retmode=xml"
     )
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=_PAGE_TIMEOUT)
+        resp = _get(url, timeout=_PAGE_TIMEOUT)
         resp.raise_for_status()
         xml_text = resp.text
     except Exception as exc:
@@ -469,7 +470,7 @@ def _fetch_jats_metadata(pmc_id: str) -> Optional[dict]:
         f"?db=pmc&id={numeric_id}&rettype=xml&retmode=xml"
     )
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=_PAGE_TIMEOUT)
+        resp = _get(url, timeout=_PAGE_TIMEOUT)
         resp.raise_for_status()
         xml_text = resp.text
     except Exception as exc:
@@ -640,7 +641,7 @@ def fetch_paper(
     # Always fetch the HTML page — needed for figure extraction and HTML-path
     # text/metadata when JATS is unavailable or disabled.
     article_url = f"{_BASE_URL}/articles/{pmc_id}/"
-    response = requests.get(article_url, headers=_HEADERS, timeout=_PAGE_TIMEOUT)
+    response = _get(article_url, timeout=_PAGE_TIMEOUT)
     if not response.ok:
         raise requests.HTTPError(
             f"Failed to fetch {article_url} — HTTP {response.status_code}",
@@ -926,7 +927,7 @@ def fetch_url(
 
     # 2. Fetch the URL.
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=_PAGE_TIMEOUT)
+        resp = _get(url, timeout=_PAGE_TIMEOUT)
         resp.raise_for_status()
     except Exception as exc:
         raise RuntimeError(f"Failed to fetch {url}: {exc}") from exc

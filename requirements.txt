@@ -1,5 +1,6 @@
 gradio==5.50.0
 requests
+curl_cffi
 beautifulsoup4
 pymupdf
 transformers>=4.45.0

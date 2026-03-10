@@ -15,7 +15,7 @@ python_version: "3.12"
 
 **[Live Demo on HuggingFace Spaces](https://huggingface.co/spaces/prockot/biomed-paper-extractor)** | **[GitHub](https://github.com/PR0CK0/biomed-paper-extractor)**
 
-![Demo](https://raw.githubusercontent.com/PR0CK0/biomed-paper-extractor/84b35f8/demo.gif)
+![Demo](https://raw.githubusercontent.com/PR0CK0/biomed-paper-extractor/assets/demo.gif)
 
 An end-to-end pipeline for automated biomedical literature analysis. Accepts a PubMed Central (PMC) ID, PMC article URL, or any supported paper URL and returns two structured outputs: digitized figure data via a Vision Language Model (VLM) and biomedical named entities via a configurable NER pipeline.
 

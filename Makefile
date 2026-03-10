@@ -1,7 +1,14 @@
-PYTHON   := python3.11
-VENV     := .venv
-BIN      := $(VENV)/bin
-PIP      := $(BIN)/pip
+# Detect OS — use Scripts/ on Windows, bin/ on Unix/Mac
+ifeq ($(OS),Windows_NT)
+  PYTHON := py -3.12
+  BIN    := .venv/Scripts
+else
+  PYTHON := python3.11
+  BIN    := .venv/bin
+endif
+
+VENV := .venv
+PIP  := $(BIN)/pip
 
 .PHONY: install reinstall upgrade run test test-integration clean help
 
@@ -10,10 +17,10 @@ install: $(VENV)/touchfile
 
 $(VENV)/touchfile: requirements.txt
 	$(PYTHON) -m venv $(VENV)
-	$(PIP) install --upgrade pip
+	$(BIN)/python -m pip install --upgrade pip
 	$(PIP) install -r requirements.txt
 	@touch $(VENV)/touchfile
-	@echo "\nInstall complete. Run: make run"
+	@echo "Install complete. Run: make run"
 
 ## Wipe venv and reinstall from scratch
 reinstall: clean install

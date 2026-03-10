@@ -19,6 +19,50 @@ Designed for researchers who need structured, machine-readable information extra
 
 ---
 
+## Quick Start
+
+**Python 3.11 or 3.12 is required.** Python 3.13+ breaks `blis`, a dependency of the NER stack.
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/PR0CK0/biomed-paper-extractor
+cd biomed-paper-extractor
+make install   # creates .venv with python3.11 and installs all dependencies
+make run       # launches app at http://localhost:7860
+```
+
+### Windows
+
+Install [Python 3.12](https://www.python.org/downloads/release/python-31210/) and [GNU Make for Windows](https://gnuwin32.sourceforge.net/packages/make.htm) (or via `winget install GnuWin32.Make`), then open a terminal in the repo directory:
+
+```powershell
+make install   # creates .venv with py -3.12 and installs all dependencies
+make run       # launches app at http://localhost:7860
+```
+
+> First install downloads ~2 GB of scispaCy models and ML dependencies — expect 5–10 minutes.
+
+### API Keys (optional)
+
+To use cloud VLM backends (OpenAI, Anthropic, Google), set the relevant environment variable before launching — or just paste the key into the UI at runtime:
+
+```bash
+# macOS / Linux
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export GOOGLE_API_KEY=...
+```
+
+```powershell
+# Windows PowerShell
+$env:OPENAI_API_KEY = "sk-..."
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:GOOGLE_API_KEY = "..."
+```
+
+---
+
 ## Tasks
 
 ### Task 1 — Figure Digitization (VLM)
@@ -234,27 +278,6 @@ Llama-3.2-11B-Vision requires a HuggingFace account, an approved access request 
 ### ZeroGPU / Shared GPU
 
 On HuggingFace Spaces with ZeroGPU, the GPU is allocated per request and released after each inference call. Model weights must be reloaded to VRAM on each GPU acquisition unless the Space uses a dedicated GPU tier. Expect 30–60 seconds of GPU warmup on the first figure analysis request in a session.
-
----
-
-## Local Development
-
-```bash
-git clone https://github.com/PR0CK0/biomed-paper-extractor
-cd pdf-extractor
-make install   # creates .venv with python3.11 and installs dependencies
-make run       # launches app at http://localhost:7860
-```
-
-GPU acceleration is optional but strongly recommended for local VLM inference. CPU-only mode works for NER and API-backed VLM providers.
-
-To use API-backed VLMs locally, set the relevant environment variables before launching:
-
-```bash
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-ant-...
-export GOOGLE_API_KEY=...
-```
 
 ---
 

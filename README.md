@@ -23,6 +23,26 @@ Designed for researchers who need structured, machine-readable information extra
 
 ---
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [How to Use](#how-to-use)
+  - [Extraction Tab](#extraction-tab)
+  - [Evaluation Tab](#evaluation-tab)
+  - [A/B Run Comparison](#ab-run-comparison)
+  - [Output Structure](#output-structure)
+- [Tasks](#tasks)
+  - [Task 1 — Figure Digitization (VLM)](#task-1--figure-digitization-vlm)
+  - [Task 2 — Biomedical NER](#task-2--biomedical-named-entity-recognition-ner)
+- [Models](#models)
+  - [Vision Language Models](#vision-language-models-task-1)
+  - [NER Models](#ner-models-task-2)
+- [Features](#features)
+- [Deployment Notes and Known Limitations](#deployment-notes-and-known-limitations)
+- [License](#license)
+
+---
+
 ## Quick Start
 
 **Python 3.11 or 3.12 is required.** Python 3.13+ breaks `blis`, a dependency of the NER stack.
@@ -77,6 +97,74 @@ export GOOGLE_API_KEY=...
 $env:OPENAI_API_KEY = "sk-..."
 $env:ANTHROPIC_API_KEY = "sk-ant-..."
 $env:GOOGLE_API_KEY = "..."
+```
+
+---
+
+## How to Use
+
+### Extraction Tab
+
+Run a full analysis on a single paper:
+
+- **Enter a paper** — type a PMC ID (e.g. `PMC7614754`), a full PMC URL, or use one of the example buttons.
+- **Select a VLM** — choose a provider (HuggingFace, Ollama, or API) and pick a model, then click **Load / Reload VLM**. Optionally enable **DePlot context** for better chart extraction.
+- **Select a NER model** — pick from the dropdown and click **Load / Reload NER**. The info panel below the dropdown shows entity types, training data, and any memory warnings for the selected model.
+- **Wait for both to be ready** — the readiness display just below the top input shows the status of each. Once both show `Ready`, the **Analyze** button enables automatically.
+- **Click Analyze** — the pipeline runs through four stages shown in the progress timeline: **Fetch → Image Analysis → Entity Extraction → Complete**, each with live timing.
+- **View results** in the tabs that appear below the timeline:
+  - **Article** — paper metadata and full article text
+  - **Figures** — extracted figure images with captions
+  - **Task 1 - Image Information** — structured JSON output per figure (type, axes, legend, data points)
+  - **Task 2 - Entities** — highlighted text with entity labels, a filterable entity table, and raw JSON
+  - **Run Summary** — per-run stats (figure count, entity count, latency breakdown) and A/B comparison controls
+  - **Visualization** — entity co-occurrence network graph and word cloud (click **Build Visualizations**)
+  - **Run Info** — full run configuration, model names, and output directory path
+
+Results are also saved to disk under `output/extraction/` (see [Output Structure](#output-structure)).
+
+### Evaluation Tab
+
+Benchmark any combination of VLMs and NER models across multiple papers:
+
+- **Enter paper IDs** — one PMC ID or URL per line (defaults are pre-filled).
+- **Select VLMs and NER models** — check any combination; all selected models run against all papers.
+- **Click Run Evaluation** — progress streams live as each paper/model combination completes.
+- **View results** in three tabs:
+  - **Summary** — aggregated tables comparing VLM latency, field completeness, and data point extraction; and NER entity counts, density, and latency across all models
+  - **Charts** — Plotly visualizations: VLM latency per figure, output richness radar, panel detection, latency vs. richness scatter, NER latency, entity counts, and per-model entity type distribution
+  - **Report** — full markdown report with per-paper breakdowns, downloadable as `report.md`
+  - **Raw JSON** — complete structured result for programmatic use
+
+### A/B Run Comparison
+
+Compare two extraction runs directly — useful for quantifying the effect of DePlot injection or switching models:
+
+- Run an analysis, then click **Set as Run A** in the **Run Summary** tab.
+- Run a second analysis with different settings, then click **Set as Run B**.
+- A side-by-side comparison table appears with deltas (Δ) and trend arrows for figures, panels, data points, entity counts, and latency.
+
+### Output Structure
+
+```
+output/
+├── extraction/
+│   └── PMC8141091_2024-03-15_14-30-22/
+│       ├── task1_figures.json    ← Task 1 VLM output (all figures)
+│       ├── task2_ner.json        ← Task 2 NER output (all entities)
+│       ├── metadata.json         ← Paper metadata (title, authors, etc.)
+│       ├── run_info.json         ← Run configuration and timing
+│       ├── run_summary.json      ← Aggregated run metrics
+│       ├── prompt.txt            ← Last VLM prompt (for debugging)
+│       ├── paper.pdf             ← Source document (or article.html)
+│       └── figures/
+│           ├── fig1.png          ← Extracted figure images
+│           ├── fig2.png
+│           └── ...
+└── evaluation/
+    └── eval_2024-03-15_15-00-00/
+        ├── report.md             ← Markdown summary report
+        └── eval_result.json      ← Raw per-paper results
 ```
 
 ---
@@ -147,7 +235,7 @@ The full paper text (abstract and body) is processed by a selected NER model. Re
 
 **Local Inference (Ollama):**
 
-The app queries your local Ollama server for any model that advertises `vision` capability. Below are known-good options:
+The app queries your local Ollama server for any model that advertises the `vision` capability. Below are known-good options:
 
 > **Note:** The same size/complexity tradeoff applies to Ollama models — sub-3B models may produce incomplete or malformed output on complex figures.
 
@@ -199,63 +287,11 @@ The **Evaluation** tab benchmarks any VLM and NER combination across a configura
 
 ### A/B Run Comparison
 
-The **Run Summary** sub-tab (inside Extraction) loads two saved runs side-by-side for direct comparison. The canonical use case is comparing a VLM run with DePlot injection enabled versus disabled to quantify the accuracy delta.
+The **Run Summary** sub-tab (inside Extraction) compares two saved runs side-by-side. The canonical use case is comparing a VLM run with DePlot injection enabled versus disabled to quantify the accuracy delta.
 
 ### Output to Disk
 
 Analysis results are written to `output/extraction/` alongside the app. Each run produces a dated subdirectory containing the figure JSON, entity JSON, figure images, metadata, and the full prompt sent to the VLM.
-
----
-
-## Usage
-
-### Single Paper Analysis
-
-1. Enter a PMC ID (e.g. `PMC8141091`), a full PMC URL, or any supported paper URL in the input field.
-2. Select a VLM from the **HuggingFace Models**, **API Backend**, or **Ollama** tab in the model selector.
-3. Select a NER model from the NER dropdown.
-4. Optionally enable **DePlot injection** for better chart extraction.
-5. Click **Run Analysis**.
-6. Results appear in the **Figures** and **Entities** tabs. Both are downloadable as JSON.
-
-### Evaluation Across Multiple Papers
-
-1. Open the **Evaluation** tab.
-2. Enter a list of PMC IDs (one per line) or use the defaults.
-3. Select the VLM and NER models to benchmark.
-4. Click **Run Eval**. Progress streams to the log panel.
-5. When complete, download the markdown report or view results inline.
-
-### A/B Comparison
-
-1. Run two analyses with different settings (e.g. DePlot on vs. off) and save each run.
-2. Open the **Run Summary** sub-tab inside the Extraction tab.
-3. Load the two run directories. Summary tables and diff metrics render side-by-side.
-
----
-
-## Output Structure
-
-```
-output/
-├── extraction/
-│   └── PMC8141091_2024-03-15_14-30-22/
-│       ├── task1_figures.json    ← Task 1 VLM output (all figures)
-│       ├── task2_ner.json        ← Task 2 NER output (all entities)
-│       ├── metadata.json         ← Paper metadata (title, authors, etc.)
-│       ├── run_info.json         ← Run configuration and timing
-│       ├── run_summary.json      ← Aggregated run metrics
-│       ├── prompt.txt            ← Last VLM prompt (for debugging)
-│       ├── paper.pdf             ← Source document (or article.html)
-│       └── figures/
-│           ├── fig1.png          ← Extracted figure images
-│           ├── fig2.png
-│           └── ...
-└── evaluation/
-    └── eval_2024-03-15_15-00-00/
-        ├── report.md             ← Markdown summary report
-        └── eval_result.json      ← Raw per-paper results
-```
 
 ---
 

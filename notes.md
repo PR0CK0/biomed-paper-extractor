@@ -20,6 +20,13 @@
 * The scispaCy NER models are nice because they automatically link entities to UMLS CUIs — though this can be done for the other models with a lookup table.
 * NER is nowadays something of a fast and largely solved task; model selection really just depends on the set of terms you want to output.
 
+## Dynamic Task Selection
+
+* Currently the app runs both VLM and NER together — it would be useful to add a toggle so users can run just one task (e.g., only NER for fast entity extraction without touching figures, or only VLM when NER output isn't needed).
+* Separating the tasks also opens the door to adding new task types in the future (e.g., citation graph extraction, methods section parsing, statistical result scraping) without requiring changes to existing task logic.
+* A task selection UI (checkboxes or a multi-select) is a natural fit here — run selected tasks, skip the rest. This keeps the pipeline modular and lets users avoid unnecessary compute.
+* Each task could be defined as a self-contained module with a standard interface (input: paper, output: structured result), making it straightforward to plug in new tasks or swap out implementations.
+
 ## General
 
 * It is possible to digitize any image with very good accuracy — it just requires a larger model and more inference time/cost. This is fundamentally a speed vs. accuracy tradeoff.
